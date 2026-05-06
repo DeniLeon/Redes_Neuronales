@@ -61,12 +61,11 @@ y_test= y[split:] #etiquetas correspondientes a las muestras de prueba
 print("Train:", X_train.shape)
 print("Test:", X_test.shape)
 
-
-#-----------------------------------------------
-#RED JORDAN
-#-----------------------------------------------    
-
+  
+#----------------------------------
 #funciones auxiliares
+#----------------------------------
+
 def softmax(z):
     exp_z = np.exp(z-np.max(z))
     return exp_z/ np.sum(exp_z)
@@ -74,14 +73,14 @@ def softmax(z):
 def onehot(label,num_classes=6):
     vec= np.zeros(num_classes)
     vec[label]=1
-    return vec
+    return vec 
 
 
 def tanh_derivative(h):
     return 1 - h**2
 
 #----------------------
-# inicialización
+# inicialización Red de Jordan
 #----------------------
 
 
@@ -169,8 +168,77 @@ for epoch in range(epochs):
 
     print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss:.2f}")
 
+
+#--------------------------
+#Red de Elman 
+#--------------------------
+
+np.random.seed(1)
+input_size= 1
+hidden_size = 12
+context_size_elman = hidden_size
+output_size = 6
+
+W1_e = np.random.randn(hidden_size, input_size + context_size_elman)*0.1
+b1_e = np.zeros(hidden_size)
+
+W2_e = np.random.randn(output_size, hidden_size)*0.1 
+b2_e = np.zeros(output_size)
+
+mu_e= 0.3
+lr_e= 0.005
+epochs_e = 100
+
+loss_elman =[]
+
+#------------------
+#Comienza entrenamiento de Elman
+#------------------
+for epoch in range(epochs_e):
+    total_loss = 0
+
+    for x_seq,label in zip(X_train,y_train):
+        c= np.zeros(context_size_elman)
+
+        for xt in x_seq:
+            z= np.concatenate(([xt],c))
+            n1= W1_e @ z + b1_e
+            h=np.tanh(n1)
+
+            n2= W2_e @ h + b2_e
+            y_pred = softmax(n2)
+
+            #contexto Elman: guarda la activación oculta
+            c= mu_e*c + h
+        
+        t= onehot(label)
+
+        loss = -np.sum(t * np.log(y_pred +  1e-8))
+        total_loss += loss
+
+        e2= y_pred - t
+
+        dW2= np.outer(e2,h)
+        db2= e2
+
+        e1=(W2_e.T @ e2) * tanh_derivative(h)
+
+        dW1 = np.outer(e1,z)
+        db1= e1
+
+        W2_e -= lr_e * dW2
+        b2_e -= lr_e * db2
+
+        W1_e -= lr_e *dW1
+        b1_e -= lr_e * db1
+
+    loss_elman.append(total_loss)
+    print(f"Elman Epoch {epoch+1}/{epochs_e}, Loss: {total_loss:.2f}")
+
+
+
 #*_*_*_*_*_*_*_*_*_*_*_*_*
-#Predicción
+#Predicción Jordan
 #*_*_*_*_*_*_*_*_*_*_*_*_*
  
 
@@ -195,6 +263,13 @@ def predict_jordan(X):
         preds.append(np.argmax(y_pred))
     return np.array(preds)
 
+
+#-----------------------------
+#PREDICCIÓN ELMAN
+#-----------------------------
+
+
+
 #**********************
 #metricas
 #**********************
@@ -202,8 +277,8 @@ def predict_jordan(X):
 
 y_pred = predict_jordan(X_test)
 
-accuracy = np.mean(y_pred == y_test) # ejemplo np.mean([True, False, True]) -> (1 + 0 + 1) / 3 = 0.6667
-print(f"Accuracy: {accuracy:.3f}") 
+accuracy_jordan = np.mean(y_pred == y_test) # ejemplo np.mean([True, False, True]) -> (1 + 0 + 1) / 3 = 0.6667
+print(f"Accuracy: {accuracy_jordan:.3f}") 
 
 #matriz de confusión 
 conf_matrix = np.zeros((6,6), dtype=int)
