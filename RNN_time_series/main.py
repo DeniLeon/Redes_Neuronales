@@ -236,7 +236,6 @@ for epoch in range(epochs_e):
     print(f"Elman Epoch {epoch+1}/{epochs_e}, Loss: {total_loss:.2f}")
 
 
-
 #*_*_*_*_*_*_*_*_*_*_*_*_*
 #Predicción Jordan
 #*_*_*_*_*_*_*_*_*_*_*_*_*
@@ -267,24 +266,76 @@ def predict_jordan(X):
 #-----------------------------
 #PREDICCIÓN ELMAN
 #-----------------------------
+def predict_elman(X):
+    preds= []
+    
+    for x_seq in X:
+
+        c= np.zeros(context_size_elman)
+
+        for xt in x_seq:
+            z=np.concatenate(([xt],c))
+
+            n1= W1_e @ z + b1_e
+            h= np.tanh(n1)
+
+            n2= W2_e @ h + b2_e
+            y_pred= softmax(n2)
+
+            c= mu_e * c + h
+        preds.append(np.argmax(y_pred))
+    return np.array(preds)
 
 
 
 #**********************
-#metricas
+#metricas JORDAN
 #**********************
 
 
 y_pred = predict_jordan(X_test)
 
 accuracy_jordan = np.mean(y_pred == y_test) # ejemplo np.mean([True, False, True]) -> (1 + 0 + 1) / 3 = 0.6667
-print(f"Accuracy: {accuracy_jordan:.3f}") 
+print(f"Accuracy Jordan: {accuracy_jordan:.3f}") 
 
 #matriz de confusión 
-conf_matrix = np.zeros((6,6), dtype=int)
+conf_matrix_jordan = np.zeros((6,6), dtype=int)
 for yt,yp in zip(y_test, y_pred):
-    conf_matrix[yt,yp] +=1
+    conf_matrix_jordan[yt,yp] +=1
 
 
-print("Matriz de confusión:")
-print(conf_matrix)
+print("Matriz de confusión JORDAN:")
+print(conf_matrix_jordan)
+
+#--------------------------
+#metricas Elman
+#--------------------------
+
+y_pred_elman = predict_elman(X_test)
+accuracy_elman = np.mean(y_pred_elman == y_test)
+print(f"Accuracy Elman: {accuracy_elman:.3f}")
+
+#confusión Elman
+conf_matrix_elman = np.zeros((6,6), dtype=int)
+
+for yt, yp in zip(y_test, y_pred_elman):
+    conf_matrix_elman[yt, yp] += 1
+
+print("Matriz de confusión Elman:")
+print(conf_matrix_elman)
+
+
+#----------------------------------------------
+#Comparación de Arquitecturas Jordan vs Elman
+#----------------------------------------------
+
+models = ["Jordan", "Elman"]
+accuracies = [accuracy_jordan, accuracy_elman]
+
+plt.figure(figsize=(6,4))
+plt.bar(models, accuracies)
+plt.ylim(0 , 1)
+plt.title("Comparación Jordan vs Elman")
+plt.grid(axis= "y" , alpha=0.3)
+plt.show()
+
