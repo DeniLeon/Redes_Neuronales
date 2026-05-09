@@ -342,11 +342,6 @@ def calcular_metricas(y_real, y_pred, num_classes = 6, nombre_modelo= "Modelo"):
 
 
 
-    
-
-
-
-
 #**********************
 #metricas JORDAN
 #**********************
