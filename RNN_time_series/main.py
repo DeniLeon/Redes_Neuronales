@@ -12,9 +12,11 @@ X= np.loadtxt(data_path)
 
 print("Tamaño del dataset: ", X.shape) #600,60
 
-#**************
+#*******************
 #Crear etiquetas
-#**************
+#*******************
+
+
 # 6 clases, y cada clase tiene 100 ejemplos de series temporales
 
 y= np.zeros(600, dtype=int) #inicializamos un vector de ceros de tamaño 600
@@ -105,9 +107,12 @@ mu= 0.3
 lr= 0.005
 epochs= 100
 
+
+loss_jordan =[]
 # ============================
 # ENTRENAMIENTO JORDAN 
 # ============================
+
 
 for epoch in range(epochs):
 
@@ -130,20 +135,20 @@ for epoch in range(epochs):
 
             # salida
             n2 = W2 @ h +b2
-            y_pred = softmax(n2)
+            y_pred_jordan = softmax(n2)
 
             # actualización contexto (Jordan)
-            c = mu * c + y_pred # es un vector de tamaño de context_size
+            c = mu * c + y_pred_jordan # es un vector de tamaño de context_size
 
         # target one-hot
         t = onehot(label)
 
         #loss final
-        loss = -np.sum(t * np.log(y_pred + 1e-8)) #es un valor escalar
+        loss = -np.sum(t * np.log(y_pred_jordan + 1e-8)) #es un valor escalar
         total_loss += loss
 
         #error de salida
-        e2 = y_pred - t # es un vector de tamaño output_size
+        e2 = y_pred_jordan - t # es un vector de tamaño output_size
 
         #gradientes de capa de salida
         dW2= np.outer(e2, h) # matriz de tamaño output_size x hidden_size
@@ -165,7 +170,7 @@ for epoch in range(epochs):
         W1 -= lr * dW1
         b1 -= lr * db1
         
-
+    loss_jordan.append(total_loss)
     print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss:.2f}")
 
 
@@ -191,9 +196,9 @@ epochs_e = 100
 
 loss_elman =[]
 
-#------------------
-#Comienza entrenamiento de Elman
-#------------------
+#----------------------------------
+#  Comienza entrenamiento de Elman
+#----------------------------------
 for epoch in range(epochs_e):
     total_loss = 0
 
@@ -206,17 +211,17 @@ for epoch in range(epochs_e):
             h=np.tanh(n1)
 
             n2= W2_e @ h + b2_e
-            y_pred = softmax(n2)
+            y_pred_elman = softmax(n2)
 
             #contexto Elman: guarda la activación oculta
             c= mu_e*c + h
         
         t= onehot(label)
 
-        loss = -np.sum(t * np.log(y_pred +  1e-8))
+        loss = -np.sum(t * np.log(y_pred_elman +  1e-8))
         total_loss += loss
 
-        e2= y_pred - t
+        e2= y_pred_elman - t
 
         dW2= np.outer(e2,h)
         db2= e2
@@ -256,10 +261,10 @@ def predict_jordan(X):
             h= np.tanh(n1)
 
             n2= W2 @ h + b2
-            y_pred= softmax(n2)
+            y_pred_jordan= softmax(n2)
 
-            c = mu * c + y_pred
-        preds.append(np.argmax(y_pred))
+            c = mu * c + y_pred_jordan
+        preds.append(np.argmax(y_pred_jordan))
     return np.array(preds)
 
 
@@ -280,11 +285,65 @@ def predict_elman(X):
             h= np.tanh(n1)
 
             n2= W2_e @ h + b2_e
-            y_pred= softmax(n2)
+            y_pred_elman= softmax(n2)
 
             c= mu_e * c + h
-        preds.append(np.argmax(y_pred))
+        preds.append(np.argmax(y_pred_elman))
     return np.array(preds)
+
+
+#-------------------------------
+#función general para métricas
+#-------------------------------
+
+def calcular_metricas(y_real, y_pred, num_classes = 6, nombre_modelo= "Modelo"):
+
+    #matriz de confusión
+    conf_matrix = np.zeros((num_classes, num_classes), dtype = int)
+
+    for real, pred in zip(y_real, y_pred):
+        conf_matrix[real,pred] += 1
+
+    #accuracy
+    accuracy= np.trace(conf_matrix) / np.sum(conf_matrix)
+
+    #precision y recall por clase
+    precision =[]
+    recall= []
+
+    for k in range(num_classes):
+
+        TP= conf_matrix[k,k]
+        FP = np.sum(conf_matrix [:,k]) - TP
+        FN = np.sum(conf_matrix[k,:]) - TP
+
+        prec_k = TP / (TP + FP) if (TP + FP) > 0 else 0.0
+        rec_k = TP / (TP + FN) if (TP + FN) > 0 else 0.0
+
+        precision.append(prec_k)
+        recall.append(rec_k)
+    
+    print(f"\n--------Métricas {nombre_modelo}--------")
+    print(f"Accuracy: {accuracy:.4f}")
+    
+    print("\nMatriz de Confusión:")
+    print(conf_matrix)
+
+    print("\n Precision por clase")
+
+    for k in range (num_classes):
+        print(f"Clase {k} : {precision[k]:.4f}")
+
+    print("\n Recall por clase")
+    for k in range(num_classes):
+        print(f"Clase {k}: {recall[k]: .4f}")
+
+    return accuracy, conf_matrix,precision, recall
+
+
+
+    
+
 
 
 
@@ -293,49 +352,43 @@ def predict_elman(X):
 #**********************
 
 
-y_pred = predict_jordan(X_test)
+y_pred_jordan = predict_jordan(X_test)
 
-accuracy_jordan = np.mean(y_pred == y_test) # ejemplo np.mean([True, False, True]) -> (1 + 0 + 1) / 3 = 0.6667
-print(f"Accuracy Jordan: {accuracy_jordan:.3f}") 
-
-#matriz de confusión 
-conf_matrix_jordan = np.zeros((6,6), dtype=int)
-for yt,yp in zip(y_test, y_pred):
-    conf_matrix_jordan[yt,yp] +=1
-
-
-print("Matriz de confusión JORDAN:")
-print(conf_matrix_jordan)
+accuracy_jordan, conf_matrix_jordan, precision_jordan, recall_jordan = calcular_metricas(
+    y_test, 
+    y_pred_jordan, 
+    num_classes=6, 
+    nombre_modelo="Jordan"
+)
 
 #--------------------------
 #metricas Elman
 #--------------------------
 
 y_pred_elman = predict_elman(X_test)
-accuracy_elman = np.mean(y_pred_elman == y_test)
-print(f"Accuracy Elman: {accuracy_elman:.3f}")
 
-#confusión Elman
-conf_matrix_elman = np.zeros((6,6), dtype=int)
-
-for yt, yp in zip(y_test, y_pred_elman):
-    conf_matrix_elman[yt, yp] += 1
-
-print("Matriz de confusión Elman:")
-print(conf_matrix_elman)
+accuracy_elman, conf_matrix_elman, precision_elman, recall_elman = calcular_metricas(
+    y_test,
+    y_pred_elman,
+    num_classes=6,
+    nombre_modelo="Elman"
+)
 
 
 #----------------------------------------------
 #Comparación de Arquitecturas Jordan vs Elman
 #----------------------------------------------
 
-models = ["Jordan", "Elman"]
-accuracies = [accuracy_jordan, accuracy_elman]
+plt.figure(figsize=(10,5))
 
-plt.figure(figsize=(6,4))
-plt.bar(models, accuracies)
-plt.ylim(0 , 1)
-plt.title("Comparación Jordan vs Elman")
-plt.grid(axis= "y" , alpha=0.3)
+plt.plot(loss_jordan, label="Jordan")
+plt.plot(loss_elman, label="Elman")
+
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.title("Curva de Pérdida durante el Entrenamiento : Jordan vs Elman")
+plt.grid(True)
+plt.legend()
 plt.show()
+
 
